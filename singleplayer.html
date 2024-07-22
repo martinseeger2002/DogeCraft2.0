@@ -17,6 +17,43 @@
 		<script src="js/render.js" type="text/javascript"></script>
 		<script src="js/physics.js" type="text/javascript"></script>
 		<script src="js/player.js" type="text/javascript"></script>
+		
+		<style>
+			#save-button, #load-button {
+				position: fixed;
+				top: 10px;
+				right: 10px;
+				padding: 10px 20px;
+				background-color: #4CAF50;
+				color: white;
+				border: none;
+				cursor: pointer;
+				border-radius: 5px;
+				font-size: 16px;
+				margin-left: 10px;
+				display: none; /* Hide initially */
+			}
+			#load-button {
+				right: 140px;
+			}
+			#dimension-controls {
+				position: fixed;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				background-color: rgba(255, 255, 255, 0.8);
+				padding: 10px;
+				border-radius: 5px;
+				text-align: center;
+			}
+			#dimension-controls select {
+				margin-right: 10px;
+			}
+			#creator-link {
+				margin-top: 10px;
+				display: block;
+			}
+		</style>
 	</head>
 	
 	<body oncontextmenu="return false">
@@ -27,48 +64,176 @@
 		<table id="materialSelector">
 			<tr></tr>
 		</table>
+
+		<!-- Save Button -->
+		<button id="save-button">Save World</button>
+		<!-- Load Button -->
+		<button id="load-button">Load World</button>
+
+		<!-- Dimension Controls -->
+		<div id="dimension-controls">
+			<select id="world-x">
+				<option value="8">8</option>
+				<option value="16">16</option>
+				<option value="32">32</option>
+				<option value="64">64</option>
+				<option value="128">128</option>
+			</select>
+			<select id="world-y">
+				<option value="8">8</option>
+				<option value="16">16</option>
+				<option value="32">32</option>
+				<option value="64">64</option>
+				<option value="128">128</option>
+			</select>
+			<select id="world-z">
+				<option value="8">8</option>
+				<option value="16">16</option>
+				<option value="32">32</option>
+				<option value="64">64</option>
+				<option value="128">128</option>
+			</select>
+			<select id="flat-height">
+				<option value="1">1</option>
+				<option value="2">2</option>
+				<!-- More options will be added dynamically based on the selected world-z -->
+			</select>
+			<button id="create-world-button">Create World</button>
+			<a id="creator-link" href="https://x.com/MartinSeeger2" target="_blank">Brought to you ₿ig Chief Energy</a>
+		</div>
 		
 		<!-- Initialisation code -->
 		<script type="text/javascript">			
-			// Create a new flat world
-			var world = new World( 92, 92, 16 );
-			world.createFlatWorld( 6 );
-			
-			// Set up renderer
-			var render = new Renderer( "renderSurface" );
-			render.setWorld( world, 8 );
-			render.setPerspective( 60, 0.01, 200 );
-			
-			// Create physics simulator
-			var physics = new Physics();
-			physics.setWorld( world );
-			
-			// Create new local player
-			var player = new Player();
-			player.setWorld( world );
-			player.setInputCanvas( "renderSurface" );
-			player.setMaterialSelector( "materialSelector" );
-			
-			// Render loop			
-			setInterval( function()
-			{
-				var time = new Date().getTime() / 1000.0;
-				
-				// Simulate physics
-				physics.simulate();
-				
-				// Update local player
-				player.update();
-				
-				// Build a chunk
-				render.buildChunks( 1 );
-				
-				// Draw world
-				render.setCamera( player.getEyePos().toArray(), player.angles );
-				render.draw();
-				
-				while ( new Date().getTime() / 1000 - time < 0.016 );
-			}, 1 );
+			let world, render, physics, player;
+
+			function createWorld(sx, sy, sz, flatHeight) {
+				// Create a new flat world
+				world = new World(sx, sy, sz);
+				world.createFlatWorld(flatHeight);
+
+				// Set up renderer
+				render = new Renderer("renderSurface");
+				render.setWorld(world, 8);
+				render.setPerspective(60, 0.01, 200);
+
+				// Create physics simulator
+				physics = new Physics();
+				physics.setWorld(world);
+
+				// Create new local player
+				player = new Player();
+				player.setWorld(world);
+				player.setInputCanvas("renderSurface");
+				player.setMaterialSelector("materialSelector");
+
+				// Show the save and load buttons
+				document.getElementById('save-button').style.display = 'inline-block';
+				document.getElementById('load-button').style.display = 'inline-block';
+
+				// Render loop			
+				setInterval(function () {
+					var time = new Date().getTime() / 1000.0;
+
+					// Simulate physics
+					physics.simulate();
+
+					// Update local player
+					player.update();
+
+					// Build a chunk
+					render.buildChunks(1);
+
+					// Draw world
+					render.setCamera(player.getEyePos().toArray(), player.angles);
+					render.draw();
+
+					while (new Date().getTime() / 1000 - time < 0.016);
+				}, 1);
+			}
+
+			// Function to save the world to a file using File System Access API
+			async function saveWorld() {
+				try {
+					const options = {
+						types: [{
+							description: 'Text Files',
+							accept: {'text/plain': ['.txt']},
+						}],
+					};
+					const handle = await window.showSaveFilePicker(options);
+					const writable = await handle.createWritable();
+					
+					var data = world.toNetworkString();
+					var spawnPoint = world.spawnPoint;
+					var saveData = `${world.sx},${world.sy},${world.sz},${spawnPoint.x},${spawnPoint.y},${spawnPoint.z},${data}`;
+					
+					await writable.write(saveData);
+					await writable.close();
+				} catch (err) {
+					console.error('Error saving file:', err);
+				}
+			}
+
+			// Function to load a world from a file using File System Access API
+			async function loadWorld() {
+				try {
+					const [fileHandle] = await window.showOpenFilePicker({
+						types: [{
+							description: 'Text Files',
+							accept: {'text/plain': ['.txt']},
+						}],
+						multiple: false
+					});
+					const file = await fileHandle.getFile();
+					const contents = await file.text();
+
+					const [sx, sy, sz, spawnX, spawnY, spawnZ, data] = contents.split(',');
+					world = new World(parseInt(sx), parseInt(sy), parseInt(sz));
+					world.createFromString(data);
+					world.spawnPoint = new Vector(parseFloat(spawnX), parseFloat(spawnY), parseFloat(spawnZ));
+
+					// Refresh renderer and physics world
+					render.setWorld(world, 8);
+					physics.setWorld(world);
+					player.setWorld(world);
+
+					// Show the save and load buttons
+					document.getElementById('save-button').style.display = 'inline-block';
+					document.getElementById('load-button').style.display = 'inline-block';
+				} catch (err) {
+					console.error('Error loading file:', err);
+				}
+			}
+
+			// Function to update flat world height options based on world Z dimension
+			function updateFlatHeightOptions() {
+				const worldZ = document.getElementById('world-z').value;
+				const flatHeightSelect = document.getElementById('flat-height');
+				flatHeightSelect.innerHTML = '';
+				for (let i = 1; i <= worldZ / 2; i++) {
+					const option = document.createElement('option');
+					option.value = i;
+					option.text = i;
+					flatHeightSelect.add(option);
+				}
+			}
+
+			// Add event listener to the create world button
+			document.getElementById('create-world-button').addEventListener('click', () => {
+				const sx = parseInt(document.getElementById('world-x').value);
+				const sy = parseInt(document.getElementById('world-y').value);
+				const sz = parseInt(document.getElementById('world-z').value);
+				const flatHeight = parseInt(document.getElementById('flat-height').value);
+				createWorld(sx, sy, sz, flatHeight);
+				document.getElementById('dimension-controls').style.display = 'none';
+			});
+
+			// Add event listener to update flat height options when world Z dimension changes
+			document.getElementById('world-z').addEventListener('change', updateFlatHeightOptions);
+
+			// Add event listeners to the save and load buttons
+			document.getElementById('save-button').addEventListener('click', saveWorld);
+			document.getElementById('load-button').addEventListener('click', loadWorld);
 		</script>
 	</body>
 </html>
