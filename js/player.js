@@ -464,9 +464,9 @@ Player.prototype.handleNoGravityMovement = function (delta) {
                     Math.cos(this.angles[0]) * Math.sin(Math.PI / 2 - this.angles[1]),
                     Math.sin(this.angles[0])
                 );
-                velocity.x -= forwardDirection.x * leftStickY * delta * 4;
-                velocity.y -= forwardDirection.y * leftStickY * delta * 4;
-                velocity.z += forwardDirection.z * leftStickY * delta * 4;
+                velocity.x -= forwardDirection.x * leftStickY * delta * 300;
+                velocity.y -= forwardDirection.y * leftStickY * delta * 300;
+                velocity.z -= forwardDirection.z * leftStickY * delta * 300;
             }
             if (Math.abs(leftStickX) > 0.1) {
                 var rightDirection = new Vector(
@@ -474,8 +474,8 @@ Player.prototype.handleNoGravityMovement = function (delta) {
                     Math.sin(Math.PI / 2 + Math.PI / 2 - this.angles[1]),
                     0 // No vertical movement for strafing
                 );
-                velocity.x -= rightDirection.x * leftStickX * delta * 4;
-                velocity.y -= rightDirection.y * leftStickX * delta * 4;
+                velocity.x -= rightDirection.x * leftStickX * delta * 300;
+                velocity.y -= rightDirection.y * leftStickX * delta * 300;
             }
         }
     }
