@@ -98,6 +98,10 @@
 				<option value="2">2</option>
 				<!-- More options will be added dynamically based on the selected world-z -->
 			</select>
+			<select id="gravity">
+				<option value="true">Gravity On</option>
+				<option value="false">Gravity Off</option>
+			</select>
 			<button id="create-world-button">Create World</button>
 			<a id="creator-link" href="https://x.com/MartinSeeger2" target="_blank">Brought to you ₿ig Chief Energy</a>
 		</div>
@@ -106,7 +110,7 @@
 		<script type="text/javascript">			
 			let world, render, physics, player;
 
-			function createWorld(sx, sy, sz, flatHeight) {
+			function createWorld(sx, sy, sz, flatHeight, gravity) {
 				// Create a new flat world
 				world = new World(sx, sy, sz);
 				world.createFlatWorld(flatHeight);
@@ -125,6 +129,7 @@
 				player.setWorld(world);
 				player.setInputCanvas("renderSurface");
 				player.setMaterialSelector("materialSelector");
+				player.gravity = gravity;
 
 				// Show the save and load buttons
 				document.getElementById('save-button').style.display = 'inline-block';
@@ -165,7 +170,8 @@
 					
 					var data = world.toNetworkString();
 					var spawnPoint = world.spawnPoint;
-					var saveData = `${world.sx},${world.sy},${world.sz},${spawnPoint.x},${spawnPoint.y},${spawnPoint.z},${data}`;
+					var gravity = player.gravity ? 'true' : 'false';
+					var saveData = `${world.sx},${world.sy},${world.sz},${spawnPoint.x},${spawnPoint.y},${spawnPoint.z},${gravity},${data}`;
 					
 					await writable.write(saveData);
 					await writable.close();
@@ -187,7 +193,7 @@
 					const file = await fileHandle.getFile();
 					const contents = await file.text();
 
-					const [sx, sy, sz, spawnX, spawnY, spawnZ, data] = contents.split(',');
+					const [sx, sy, sz, spawnX, spawnY, spawnZ, gravity, data] = contents.split(',');
 					world = new World(parseInt(sx), parseInt(sy), parseInt(sz));
 					world.createFromString(data);
 					world.spawnPoint = new Vector(parseFloat(spawnX), parseFloat(spawnY), parseFloat(spawnZ));
@@ -196,6 +202,7 @@
 					render.setWorld(world, 8);
 					physics.setWorld(world);
 					player.setWorld(world);
+					player.gravity = gravity === 'true';
 
 					// Show the save and load buttons
 					document.getElementById('save-button').style.display = 'inline-block';
@@ -224,7 +231,8 @@
 				const sy = parseInt(document.getElementById('world-y').value);
 				const sz = parseInt(document.getElementById('world-z').value);
 				const flatHeight = parseInt(document.getElementById('flat-height').value);
-				createWorld(sx, sy, sz, flatHeight);
+				const gravity = document.getElementById('gravity').value === 'true';
+				createWorld(sx, sy, sz, flatHeight, gravity);
 				document.getElementById('dimension-controls').style.display = 'none';
 			});
 
