@@ -10,6 +10,13 @@ MOUSE.DOWN = 1;
 MOUSE.UP = 2;
 MOUSE.MOVE = 3;
 
+// Game modes enumeration
+const GAME_MODE = {
+    BUILD: "build",
+    PLAY: "play",
+    TOURNEY: "tourney"
+};
+
 // Constructor()
 //
 // Creates a new local player manager.
@@ -23,9 +30,10 @@ function Player() {
     this.materials = []; // List of spawnable materials
     this.currentMaterialIndex = 0; // Current selected material index
     this.gravity = true; // Gravity enabled by default
+    this.gameMode = GAME_MODE.BUILD; // Default game mode
 }
 
-// setWorld( world )
+// setWorld(world)
 //
 // Assign the local player to a world.
 
@@ -41,7 +49,7 @@ Player.prototype.setWorld = function (world) {
     this.eventHandlers = {};
 }
 
-// setClient( client )
+// setClient(client)
 //
 // Assign the local player to a socket client.
 
@@ -49,7 +57,7 @@ Player.prototype.setClient = function (client) {
     this.client = client;
 }
 
-// setInputCanvas( id )
+// setInputCanvas(id)
 //
 // Set the canvas the renderer uses for some input operations.
 
@@ -76,12 +84,13 @@ Player.prototype.setInputCanvas = function (id) {
     });
 }
 
-// setMaterialSelector( id )
+// setMaterialSelector(id)
 //
 // Sets the table with the material selectors.
 
 Player.prototype.setMaterialSelector = function (id) {
-    var tableRow = document.getElementById(id).getElementsByTagName("tr")[0];
+    this.materialSelector = document.getElementById(id);
+    var tableRow = this.materialSelector.getElementsByTagName("tr")[0];
     var texOffset = 0;
 
     for (var mat in BLOCK) {
@@ -112,7 +121,7 @@ Player.prototype.setMaterialSelector = function (id) {
     }
 }
 
-// on( event, callback )
+// on(event, callback)
 //
 // Hook a player event.
 
@@ -120,7 +129,7 @@ Player.prototype.on = function (event, callback) {
     this.eventHandlers[event] = callback;
 }
 
-// onKeyEvent( keyCode, down )
+// onKeyEvent(keyCode, down)
 //
 // Hook for keyboard input.
 
@@ -132,7 +141,7 @@ Player.prototype.onKeyEvent = function (keyCode, down) {
     if (!down && key == "t" && this.eventHandlers["openChat"]) this.eventHandlers.openChat();
 }
 
-// onMouseEvent( x, y, type, rmb )
+// onMouseEvent(x, y, type, rmb)
 //
 // Hook for mouse input.
 
@@ -158,11 +167,15 @@ Player.prototype.onMouseEvent = function (x, y, type, rmb) {
     }
 }
 
-// doBlockAction( x, y, destroy )
+// doBlockAction(x, y, destroy)
 //
 // Called to perform an action based on the player's block selection and input.
 
 Player.prototype.doBlockAction = function (x, y, destroy) {
+    if (this.gameMode === GAME_MODE.TOURNEY || (this.gameMode === GAME_MODE.PLAY && !destroy)) {
+        return;
+    }
+    
     var bPos = new Vector(Math.floor(this.pos.x), Math.floor(this.pos.y), Math.floor(this.pos.z));
     var block = this.canvas.renderer.pickAt(new Vector(bPos.x - 4, bPos.y - 4, bPos.z - 4), new Vector(bPos.x + 4, bPos.y + 4, bPos.z + 4), x, y);
 
@@ -187,8 +200,6 @@ Player.prototype.getEyePos = function () {
 // update()
 //
 // Updates this local player (gravity, movement)
-
-
 
 Player.prototype.update = function () {
     var world = this.world;
@@ -226,165 +237,6 @@ Player.prototype.update = function () {
         if (this.gamepadIndex !== null) {
             var gamepad = navigator.getGamepads()[this.gamepadIndex];
             if (gamepad) {
-                if (gamepad.buttons[2].pressed) {
-                    this.keys[" "] = true;
-                } else {
-                    this.keys[" "] = false;
-                }
-
-                // Handle gamepad input for block actions (triggers)
-                var canvasCenterX = this.canvas.width / 2;
-                var canvasCenterY = this.canvas.height / 2;
-
-                if (gamepad.buttons[7].pressed && !this.triggerPressed) { // Right trigger
-                    this.doBlockAction(canvasCenterX, canvasCenterY, false);
-                    this.triggerPressed = true;
-                } else if (gamepad.buttons[6].pressed && !this.triggerPressed) { // Left trigger
-                    this.doBlockAction(canvasCenterX, canvasCenterY, true);
-                    this.triggerPressed = true;
-                } else if (!gamepad.buttons[6].pressed && !gamepad.buttons[7].pressed) {
-                    this.triggerPressed = false;
-                }
-
-                // Handle gamepad input for material selection (bumpers)
-                if (gamepad.buttons[4].pressed && !this.bumperPressed) { // Left bumper
-                    this.cycleMaterial(-1);
-                    this.bumperPressed = true;
-                } else if (gamepad.buttons[5].pressed && !this.bumperPressed) { // Right bumper
-                    this.cycleMaterial(1);
-                    this.bumperPressed = true;
-                } else if (!gamepad.buttons[4].pressed && !gamepad.buttons[5].pressed) {
-                    this.bumperPressed = false;
-                }
-            }
-        }
-
-        // Separate sections for handling movement
-        if (!this.gravity) {
-            // No gravity movement with pitch control
-            this.handleNoGravityMovement(delta);
-        } else {
-            // Regular movement with gravity
-            this.handleGravityMovement(delta);
-        }
-
-        // View
-        if (this.dragging || (this.gamepadIndex !== null && this.rightStickInUse)) {
-            this.angles[0] += (this.targetPitch - this.angles[0]) * 30 * delta;
-            this.angles[1] += (this.targetYaw - this.angles[1]) * 30 * delta;
-            if (this.angles[0] < -Math.PI / 2) this.angles[0] = -Math.PI / 2;
-            if (this.angles[0] > Math.PI / 2) this.angles[0] = Math.PI / 2;
-        }
-
-        // Gravity
-        if (this.gravity && this.falling) velocity.z += -0.5;
-
-        // Jumping
-        if (this.keys[" "] && !this.falling) velocity.z = 8;
-
-        // Resolve collision
-        this.pos = this.resolveCollision(pos, bPos, velocity.mul(delta));
-    }
-
-    this.lastUpdate = new Date().getTime();
-}
-
-Player.prototype.handleNoGravityMovement = function (delta) {
-    var velocity = this.velocity;
-
-    // Handle gamepad input for player movement
-    if (this.gamepadIndex !== null) {
-        var gamepad = navigator.getGamepads()[this.gamepadIndex];
-        if (gamepad) {
-            var leftStickY = gamepad.axes[1]; // Left stick vertical
-            var leftStickX = gamepad.axes[0]; // Left stick horizontal
-
-            if (Math.abs(leftStickY) > 0.1) {
-                var forwardDirection = new Vector(
-                    Math.cos(this.angles[0]) * Math.cos(Math.PI / 2 - this.angles[1]),
-                    Math.cos(this.angles[0]) * Math.sin(Math.PI / 2 - this.angles[1]),
-                    Math.sin(this.angles[0])
-                );
-                velocity.x -= forwardDirection.x * leftStickY * delta * 4;
-                velocity.y -= forwardDirection.y * leftStickY * delta * 4;
-                velocity.z += forwardDirection.z * leftStickY * delta * 4;
-            }
-            if (Math.abs(leftStickX) > 0.1) {
-                var rightDirection = new Vector(
-                    Math.cos(Math.PI / 2 + Math.PI / 2 - this.angles[1]),
-                    Math.sin(Math.PI / 2 + Math.PI / 2 - this.angles[1]),
-                    0 // No vertical movement for strafing
-                );
-                velocity.x -= rightDirection.x * leftStickX * delta * 4;
-                velocity.y -= rightDirection.y * leftStickX * delta * 4;
-            }
-        }
-    }
-
-    // Handle keyboard input for player movement
-    var walkVelocity = new Vector(0, 0, 0);
-    if (this.keys["w"]) {
-        walkVelocity.x += Math.cos(Math.PI / 2 - this.angles[1]);
-        walkVelocity.y += Math.sin(Math.PI / 2 - this.angles[1]);
-        walkVelocity.z += Math.sin(this.angles[0]);
-    }
-    if (this.keys["s"]) {
-        walkVelocity.x += Math.cos(Math.PI + Math.PI / 2 - this.angles[1]);
-        walkVelocity.y += Math.sin(Math.PI + Math.PI / 2 - this.angles[1]);
-        walkVelocity.z -= Math.sin(this.angles[0]);
-    }
-    if (this.keys["a"]) {
-        walkVelocity.x += Math.cos(Math.PI / 2 + Math.PI / 2 - this.angles[1]);
-        walkVelocity.y += Math.sin(Math.PI / 2 + Math.PI / 2 - this.angles[1]);
-    }
-    if (this.keys["d"]) {
-        walkVelocity.x += Math.cos(-Math.PI / 2 + Math.PI / 2 - this.angles[1]);
-        walkVelocity.y += Math.sin(-Math.PI / 2 + Math.PI / 2 - this.angles[1]);
-    }
-
-    if (walkVelocity.length() > 0) {
-        walkVelocity = walkVelocity.normal();
-        velocity.x = walkVelocity.x * 4;
-        velocity.y = walkVelocity.y * 4;
-        velocity.z = walkVelocity.z * 4;
-    } else {
-        velocity.x /= 2.5; // Increased damping factor
-        velocity.y /= 2.5; // Increased damping factor
-        velocity.z /= 2.5; // Increased damping factor
-    }
-};
-
-Player.prototype.update = function () {
-    var world = this.world;
-    var velocity = this.velocity;
-    var pos = this.pos;
-    var bPos = new Vector(Math.floor(pos.x), Math.floor(pos.y), Math.floor(pos.z));
-
-    if (this.lastUpdate != null) {
-        var delta = (new Date().getTime() - this.lastUpdate) / 1000;
-
-        // Handle gamepad input for camera movement
-        if (this.gamepadIndex !== null) {
-            var gamepad = navigator.getGamepads()[this.gamepadIndex];
-            if (gamepad) {
-                var rightStickX = gamepad.axes[2]; // Right stick horizontal
-                var rightStickY = gamepad.axes[3]; // Right stick vertical
-
-                // Apply a dead zone to avoid drift
-                if (Math.abs(rightStickX) > 0.1 || Math.abs(rightStickY) > 0.1) {
-                    if (!this.rightStickInit) {
-                        this.yawStart = this.targetYaw = this.angles[1];
-                        this.pitchStart = this.targetPitch = this.angles[0];
-                        this.rightStickInit = true;
-                    }
-                    this.targetYaw += rightStickX * delta * 2; // Adjust sensitivity as needed
-                    this.targetPitch -= rightStickY * delta * 2; // Adjust sensitivity as needed
-                    this.rightStickInUse = true;
-                } else {
-                    this.rightStickInUse = false;
-                }
-
-                // Handle gamepad input for jumping (X button)
                 if (gamepad.buttons[2].pressed) {
                     this.keys[" "] = true;
                 } else {
@@ -567,11 +419,7 @@ Player.prototype.handleGravityMovement = function (delta) {
     }
 };
 
-
-
-
-
-// cycleMaterial( direction )
+// cycleMaterial(direction)
 //
 // Cycles through the materials list based on the direction.
 
@@ -593,13 +441,42 @@ Player.prototype.cycleMaterial = function (direction) {
     this.buildMaterial = selectedMaterial.material;
 }
 
-// Helper method to check if the gamepad's right stick is moving
-Player.prototype.isGamepadMoving = function() {
-    var gamepad = navigator.getGamepads()[this.gamepadIndex];
-    return Math.abs(gamepad.axes[2]) > 0.1 || Math.abs(gamepad.axes[3]) > 0.1;
+// setGameMode(mode)
+//
+// Sets the game mode for the player.
+
+Player.prototype.setGameMode = function (mode) {
+    this.gameMode = mode;
+
+    // Hide the material selector in play and tourney modes
+    if (this.gameMode !== GAME_MODE.BUILD) {
+        if (this.materialSelector) {
+            this.materialSelector.style.display = "none";
+        }
+    } else {
+        if (this.materialSelector) {
+            this.materialSelector.style.display = "block";
+        }
+    }
 }
 
-// resolveCollision( pos, bPos, velocity )
+// Save and Load world functions
+
+Player.prototype.saveWorld = function () {
+    var worldData = {
+        mode: this.gameMode,
+        // Add other world data to save here
+    };
+
+    // Save the world data to a file or server
+}
+
+Player.prototype.loadWorld = function (worldData) {
+    this.setGameMode(worldData.mode);
+    // Load other world data from the file or server
+}
+
+// resolveCollision(pos, bPos, velocity)
 //
 // Resolves collisions between the player and blocks on XY level for the next movement step.
 
