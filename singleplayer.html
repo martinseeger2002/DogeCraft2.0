@@ -53,10 +53,22 @@
             margin-top: 10px;
             display: block;
         }
+        #timer {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: black;
+            display: none; /* Hide initially */
+        }
     </style>
 </head>
 
 <body oncontextmenu="return false">
+    <!-- Timer display -->
+    <div id="timer">Time: 0s</div>
+
     <!-- Render surface -->
     <canvas id="renderSurface"></canvas>
 
@@ -141,6 +153,9 @@
             document.getElementById('save-button').style.display = 'inline-block';
             document.getElementById('load-button').style.display = 'inline-block';
 
+            // Show the timer
+            document.getElementById('timer').style.display = 'block';
+
             // Render loop
             setInterval(function () {
                 var time = new Date().getTime() / 1000.0;
@@ -158,8 +173,13 @@
                 render.setCamera(player.getEyePos().toArray(), player.angles);
                 render.draw();
 
+                // Update the timer display
+                if (player.timerStarted) {
+                    updateTimer();
+                }
+
                 while (new Date().getTime() / 1000 - time < 0.016);
-            }, 1);
+            }, 16);
         }
 
         // Function to save the world to a file using File System Access API
@@ -200,7 +220,22 @@
                 const file = await fileHandle.getFile();
                 const contents = await file.text();
 
-                const [sx, sy, sz, spawnX, spawnY, spawnZ, gravity, gameMode, data] = contents.split(',');
+
+                // Split the contents
+                let parts = contents.split(',');
+                let sx, sy, sz, spawnX, spawnY, spawnZ, gravity, gameMode, data;
+
+                // Check if gravity and gameMode are defined
+                if (parts.length === 7) {
+                    [sx, sy, sz, spawnX, spawnY, spawnZ, data] = parts;
+                    gravity = 'true'; // default value
+                    gameMode = 'build'; // default value
+                } else if (parts.length === 9) {
+                    [sx, sy, sz, spawnX, spawnY, spawnZ, gravity, gameMode, data] = parts;
+                } else {
+                    throw new Error('File content format is invalid.');
+                }
+
                 world = new World(parseInt(sx), parseInt(sy), parseInt(sz));
                 world.createFromString(data);
                 world.spawnPoint = new Vector(parseFloat(spawnX), parseFloat(spawnY), parseFloat(spawnZ));
@@ -215,10 +250,62 @@
                 // Show the save and load buttons
                 document.getElementById('save-button').style.display = 'inline-block';
                 document.getElementById('load-button').style.display = 'inline-block';
+
+                // Call the updateFlatHeightOptions function
+                updateFlatHeightOptions(sy);
             } catch (err) {
                 console.error('Error loading file:', err);
             }
         }
+
+        // Define the updateFlatHeightOptions function
+        function updateFlatHeightOptions(height) {
+            // Your code to update height options goes here
+            console.log(`Updating flat height options to ${height}`);
+            // Example: update a select element with new height
+            const heightSelect = document.getElementById('height-select');
+            if (heightSelect) {
+                heightSelect.value = height;
+            }
+        }
+
+
+        // Define the updateFlatHeightOptions function
+        function updateFlatHeightOptions(height) {
+            // Your code to update height options goes here
+            console.log(`Updating flat height options to ${height}`);
+            // Example: update a select element with new height
+            const heightSelect = document.getElementById('height-select');
+            if (heightSelect) {
+                heightSelect.value = height;
+            }
+        }
+
+
+        // Define the updateFlatHeightOptions function
+        function updateFlatHeightOptions(height) {
+            // Your code to update height options goes here
+            console.log(`Updating flat height options to ${height}`);
+            // Example: update a select element with new height
+            const heightSelect = document.getElementById('height-select');
+            if (heightSelect) {
+                heightSelect.value = height;
+            }
+        }
+
+
+        // Define the updateFlatHeightOptions function
+        function updateFlatHeightOptions(height) {
+            // Your code to update height options goes here
+            console.log(`Updating flat height options to ${height}`);
+            // Example: update a select element with new height
+            const heightSelect = document.getElementById('height-select');
+            if (heightSelect) {
+                heightSelect.value = height;
+            }
+        }
+
+
 
         // Function to update flat world height options based on world Z dimension
         function updateFlatHeightOptions() {
